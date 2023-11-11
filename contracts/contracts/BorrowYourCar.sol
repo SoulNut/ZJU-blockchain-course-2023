@@ -41,12 +41,16 @@ contract BorrowYourCar is ERC721 {
         return "hello world";
     }
 
-    function createCar() external{
+    function createCar() public {
         uint256 index = block.timestamp + uint256(blockhash(block.number - 1)) % 1000;
         _safeMint(msg.sender, index);
         cars[index] = Car(msg.sender, address(0), 0, false);
         ownerlist[msg.sender].push(index);
         ReturnedCars.push(index);
+    }
+
+    function createGeo() public {
+        geo.create(msg.sender);
     }
 
     function queryAvailableCars() external view returns (uint256[] memory) {
@@ -75,6 +79,11 @@ contract BorrowYourCar is ERC721 {
         }
     }
 
+    function queryBalance() public view returns (uint256) {
+        uint256 balance = geo.balanceOf(msg.sender);
+        return balance;
+    }
+
     function updateCar() external {
         for (uint i = 0; i < BorrowedCars.length; ++i) {
             if (uint256(cars[BorrowedCars[i]].borrowUntil) < block.timestamp) {
@@ -95,16 +104,22 @@ contract BorrowYourCar is ERC721 {
         }
     }
 
+    function deleteAvailableCar(uint256 index) external {
+        Car storage target =  cars[index];
+        require(target.isBorrowed != true, "The car has not been returned");
+        delete cars[index];
+        address owner = queryOwner(index);
+        uint256[] storage carlist = ownerlist[owner];
+        deleteElement(carlist, index);
+        deleteElement(ReturnedCars, index);
+    }
+
     function deleteCar(uint256 index) external {
         Car storage target =  cars[index];
-        // for (uint i = index; i < cars.length - 1; ++i) {
-        //     cars[i] = cars[i+1];
-        // }
-        // delete cars[cars.length - 1];
-        // cars.pop();
-
-        // address owner = queryOwner(index);
-        // delete ownerlist[owner];
+        delete cars[index];
+        address owner = queryOwner(index);
+        uint256[] storage carlist = ownerlist[owner];
+        deleteElement(carlist, index);
         if(target.isBorrowed == true) {
             deleteElement(BorrowedCars, index);
         }
@@ -116,13 +131,10 @@ contract BorrowYourCar is ERC721 {
     function borrowCar(uint256 index, uint256 duration) external {
         require(queryOwner(index) != msg.sender, "You are the owner of this car");
         Car storage target = cars[index];
-        require(!target.isBorrowed, "Car is not available for borrowing");
-        // //计算租车费用，每小时租车费用为1Geo
-        // uint256 rentalFee = duration / 3600;
-        // //检查用户余额是否足够支付租车费用
-        // require(geo.balanceOf(msg.sender) >= rentalFee, "Insufficient balance");
-        // //支付租车费用
-        // geo.transferFrom( msg.sender, target.owner, rentalFee);
+        require(target.isBorrowed != true, "Car is not available for borrowing");
+        uint256 cost = duration / 3600;
+        require(geo.balanceOf(msg.sender) >= cost, "Your balance is insufficient");
+        geo.transferFrom( msg.sender, target.owner, cost);
         target.isBorrowed = true;
         target.borrower = msg.sender;
         target.borrowUntil = block.timestamp + duration;

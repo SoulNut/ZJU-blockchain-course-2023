@@ -9,7 +9,12 @@ contract Geo is ERC20 {
     }
     function airdrop() external {
         require(claimedAirdropPlayerList[msg.sender] == false, "Geo: This user has claimed airdrop already");
-        _mint(msg.sender, 10000);
+        _mint(msg.sender, 100000);
         claimedAirdropPlayerList[msg.sender] = true;
+    }
+    function create(address target) external {
+        require(claimedAirdropPlayerList[target] == false, "Geo: This user has claimed airdrop already");
+        _mint(target, 100000);
+        claimedAirdropPlayerList[target] = true;
     }
 }
